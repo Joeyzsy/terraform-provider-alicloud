@@ -299,9 +299,61 @@ resource "alicloud_cs_kubernetes_node_pool" "customized_kubelet" {
     max_parallelism = 1
   }
 }
-```
 
-## Argument Reference
+#Upgrade a node pool with upgrade_policy and rolling_policy
+resource "alicloud_cs_kubernetes_node_pool" "upgrade_nodepool" {
+  node_pool_name       = "upgrade_nodepool"
+  cluster_id           = alicloud_cs_managed_kubernetes.default.id
+  vswitch_ids          = [alicloud_vswitch.default.id]
+  instance_types       = [data.alicloud_instance_types.cloud_efficiency.instance_types.0.id]
+  system_disk_category = "cloud_efficiency"
+  system_disk_size     = 40
+  key_name             = alicloud_key_pair.default.key_pair_name
+  desired_size         = 2
+  
+  # Set initial runtime and image_id for the node pool
+  runtime_name    = "containerd"
+  runtime_version = "1.6.39"
+  image_id        = "aliyun_3_x64_20G_container_optimized_alibase_20250629.vhd"
+
+  # upgrade_policy configuration - This is a process parameter used during update
+  # Note: Parameters in upgrade_policy (runtime, image_id, runtime_version) must match 
+  # the corresponding node pool configuration settings (runtime_name, image_id, runtime_version)
+  # to ensure consistency during the upgrade process
+  upgrade_policy {
+    # IMPORTANT: image_id must match the node pool's image_id value
+    image_id = "aliyun_3_x64_20G_container_optimized_alibase_20250629.vhd"
+    
+    # IMPORTANT: runtime must match the node pool's runtime_name value
+    runtime = "containerd"
+    
+    # IMPORTANT: runtime_version must match the node pool's runtime_version value
+    runtime_version = "1.6.39"
+    
+    # Kubernetes version to upgrade to, cannot be greater than the control plane version
+    k8s_version = "1.30.7-aliyun.1"
+    
+    # Whether to use node replacement strategy during upgrade
+    use_replace = true
+  }
+
+  # rolling_policy configuration - Controls the rolling upgrade strategy
+  # This parameter only applies during resource update
+  rolling_policy {
+    # Maximum number of nodes that can be unavailable during the rolling upgrade
+    max_parallelism = 1
+    
+    # Batch interval in minutes between upgrading batches of nodes
+    batch_interval = 1
+    
+    # Pause policy for the rolling upgrade process
+    pause_policy = "NotPause"
+    
+    # Specific node names to be upgraded first (optional)
+    # node_names = ["node-1", "node-2"]
+  }
+}
+```
 
 The following arguments are supported:
 * `auto_mode` - (Optional, ForceNew, Computed, List, Available since v1.266.0) Whether to enable auto mode. See [`auto_mode`](#auto_mode) below.
@@ -628,10 +680,10 @@ The private_pool_options supports the following:
 ### `rolling_policy`
 
 The rolling_policy supports the following:
-* `batch_interval` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `max_parallelism` - (Optional, Int) The maximum number of unusable nodes.
-* `node_names` - (Optional, List, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `pause_policy` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
+* `batch_interval` - (Optional, Int, Available since v1.266.0) Batch interval in minutes between upgrading batches of nodes.
+* `max_parallelism` - (Optional, Int) The maximum number of nodes that can be unavailable during rolling upgrade.
+* `node_names` - (Optional, List, Available since v1.266.0) Specific node names to be upgraded (optional).
+* `pause_policy` - (Optional, Available since v1.266.0) Pause policy for the rolling upgrade process. Valid values: `NotPause`, `FirstBatch`, `EveryBatch`.
 
 ### `scaling_config`
 
@@ -667,11 +719,11 @@ The tee_config supports the following:
 ### `upgrade_policy`
 
 The upgrade_policy supports the following:
-* `image_id` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `k8s_version` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `runtime` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `runtime_version` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
-* `use_replace` - (Optional, Available since v1.266.0) This property does not have a description in the spec, please add it before generating code.
+* `image_id` - (Optional, Available since v1.266.0) The image ID to upgrade to. Must match the node pool's image_id value.
+* `k8s_version` - (Optional, Available since v1.266.0) Kubernetes version to upgrade to. Cannot be greater than the control plane version.
+* `runtime` - (Optional, Available since v1.266.0) The container runtime to upgrade to. Must match the node pool's runtime_name value.
+* `runtime_version` - (Optional, Available since v1.266.0) The version of the container runtime. Must match the node pool's runtime_version value.
+* `use_replace` - (Optional, Available since v1.266.0) Whether to use node replacement strategy (disk replacement) during upgrade.
 
 ### `rollout_policy`
 

@@ -4,7 +4,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/agiledragon/gomonkey/v2 v2.3.1
 	github.com/alibabacloud-go/cs-20151215/v5 v5.9.5
-	github.com/alibabacloud-go/tea v1.3.8
+	github.com/alibabacloud-go/tea v1.3.11
 	github.com/alibabacloud-go/tea-roa v1.3.4
 	github.com/alibabacloud-go/tea-rpc v1.2.0
 	github.com/alibabacloud-go/tea-utils v1.4.5
@@ -38,7 +38,7 @@ require (
 require (
 	github.com/alibabacloud-go/alibabacloud-gateway-oss v0.0.21
 	github.com/alibabacloud-go/alibabacloud-gateway-sls v0.0.6
-	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.11
+	github.com/alibabacloud-go/darabonba-openapi/v2 v2.1.11
 	github.com/alibabacloud-go/fc-open-20210406/v2 v2.0.7
 	github.com/alibabacloud-go/sts-20150401/v2 v2.0.2
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.7
@@ -46,6 +46,7 @@ require (
 	github.com/samber/lo v1.49.1
 	github.com/tidwall/sjson v1.2.5
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -213,7 +214,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/resty.v1 v1.12.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.80.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect

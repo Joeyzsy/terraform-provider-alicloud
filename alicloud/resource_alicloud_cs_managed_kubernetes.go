@@ -843,6 +843,10 @@ func resourceAlicloudCSManagedKubernetes() *schema.Resource {
 					},
 				},
 			},
+			"master_only": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -1378,6 +1382,10 @@ func UpgradeAlicloudKubernetesCluster(d *schema.ResourceData, meta interface{}) 
 	if !d.HasChange("version") {
 		return nil
 	}
+	var masterOnly bool
+	if v, ok := d.GetOk("master_only"); ok {
+		masterOnly = v.(bool)
+	}
 
 	clusterId := d.Id()
 	version := d.Get("version").(string)
@@ -1389,6 +1397,7 @@ func UpgradeAlicloudKubernetesCluster(d *schema.ResourceData, meta interface{}) 
 	}
 	args := &roacs.UpgradeClusterRequest{
 		NextVersion: tea.String(version),
+		MasterOnly:  &masterOnly,
 	}
 	// upgrade cluster
 	var resp *roacs.UpgradeClusterResponse

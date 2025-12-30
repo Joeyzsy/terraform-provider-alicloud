@@ -685,11 +685,11 @@ func resourceAliCloudAckNodepool() *schema.Resource {
 							Optional: true,
 						},
 						"batch_interval": {
-							Type:     schema.TypeString,
+							Type:     schema.TypeInt,
 							Optional: true,
 						},
 						"node_names": {
-							Type:     schema.TypeList,
+							Type:     schema.TypeSet,
 							Optional: true,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 						},
@@ -3256,92 +3256,9 @@ func resourceAliCloudAckNodepoolUpdate(d *schema.ResourceData, meta interface{})
 			return WrapErrorf(err, IdMsg, d.Id(), jobDetail)
 		}
 	}
-	update = false
-	parts = strings.Split(d.Id(), ":")
-	ClusterId = parts[0]
-	NodepoolId = parts[1]
-	action = fmt.Sprintf("/clusters/%s/nodepools/%s/upgrade", ClusterId, NodepoolId)
-	request = make(map[string]interface{})
-	query = make(map[string]*string)
-	body = make(map[string]interface{})
 
-	if v, ok := d.GetOkExists("upgrade_policy"); ok {
-		upgradePolicyUseReplaceJsonPath, err := jsonpath.Get("$[0].use_replace", v)
-		if err == nil && upgradePolicyUseReplaceJsonPath != "" {
-			request["use_replace"] = upgradePolicyUseReplaceJsonPath
-		}
-	}
-	rolling_policy = make(map[string]interface{})
-
-	if v := d.Get("rolling_policy"); v != nil {
-		batchInterval, _ := jsonpath.Get("$[0].batch_interval", v)
-		if batchInterval != nil && batchInterval != "" {
-			rolling_policy["batch_interval"] = batchInterval
-		}
-		maxParallelism, _ := jsonpath.Get("$[0].max_parallelism", v)
-		if maxParallelism != nil && maxParallelism != "" {
-			rolling_policy["max_parallelism"] = maxParallelism
-		}
-		pausePolicy, _ := jsonpath.Get("$[0].pause_policy", v)
-		if pausePolicy != nil && pausePolicy != "" {
-			rolling_policy["pause_policy"] = pausePolicy
-		}
-
-		request["rolling_policy"] = rolling_policy
-	}
-
-	if v, ok := d.GetOk("upgrade_policy"); ok {
-		upgradePolicyImageIdJsonPath, err := jsonpath.Get("$[0].image_id", v)
-		if err == nil && upgradePolicyImageIdJsonPath != "" {
-			request["image_id"] = upgradePolicyImageIdJsonPath
-		}
-	}
-	if v, ok := d.GetOk("upgrade_policy"); ok {
-		upgradePolicyRuntimeJsonPath, err := jsonpath.Get("$[0].runtime", v)
-		if err == nil && upgradePolicyRuntimeJsonPath != "" {
-			request["runtime_type"] = upgradePolicyRuntimeJsonPath
-		}
-	}
-	if v, ok := d.GetOk("upgrade_policy"); ok {
-		upgradePolicyRuntimeVersionJsonPath, err := jsonpath.Get("$[0].runtime_version", v)
-		if err == nil && upgradePolicyRuntimeVersionJsonPath != "" {
-			request["runtime_version"] = upgradePolicyRuntimeVersionJsonPath
-		}
-	}
-	if v, ok := d.GetOk("upgrade_policy"); ok {
-		upgradePolicyK8SVersionJsonPath, err := jsonpath.Get("$[0].k8s_version", v)
-		if err == nil && upgradePolicyK8SVersionJsonPath != "" {
-			request["kubernetes_version"] = upgradePolicyK8SVersionJsonPath
-		}
-	}
-	if d.HasChange("rolling_policy") {
-		update = true
-		if v, ok := d.GetOk("rolling_policy"); ok || d.HasChange("rolling_policy") {
-			localData, err := jsonpath.Get("$[0].node_names", v)
-			if err != nil {
-				return WrapError(err)
-			}
-			node_namesMapsArray := convertToInterfaceArray(localData)
-
-			request["node_names"] = node_namesMapsArray
-		}
-	}
-
-	body = request
-	if update {
-		wait := incrementalWait(3*time.Second, 5*time.Second)
-		err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
-			response, err = client.RoaPost("CS", "2015-12-15", action, query, header, body, true)
-			if err != nil {
-				if NeedRetry(err) {
-					wait()
-					return resource.RetryableError(err)
-				}
-				return resource.NonRetryableError(err)
-			}
-			return nil
-		})
-		addDebug(action, response, request)
+	if _, ok := d.GetOk("upgrade_policy"); ok {
+		err := upgradeNodePool(d, meta)
 		if err != nil {
 			return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
 		}
@@ -3641,4 +3558,126 @@ func diffInstances(old []string, new []string) (attach []string, remove []string
 	}
 
 	return
+}
+
+func upgradeNodePool(d *schema.ResourceData, meta interface{}) error {
+	update := false
+	parts := strings.Split(d.Id(), ":")
+	ClusterId := parts[0]
+	NodepoolId := parts[1]
+	action := fmt.Sprintf("/clusters/%s/nodepools/%s/upgrade", ClusterId, NodepoolId)
+	request := make(map[string]interface{})
+	query := make(map[string]*string)
+	body := make(map[string]interface{})
+	header := make(map[string]*string)
+	response := make(map[string]interface{})
+	client := meta.(*connectivity.AliyunClient)
+	roaCsClient, _ := meta.(*connectivity.AliyunClient).NewRoaCsClient()
+
+	if v, ok := d.GetOk("upgrade_policy"); ok {
+		upgradePolicyImageIdJsonPath, err := jsonpath.Get("$[0].image_id", v)
+		if err == nil && upgradePolicyImageIdJsonPath != "" {
+			npVal := d.Get("image_id").(string)
+			if npVal != upgradePolicyImageIdJsonPath {
+				return WrapError(fmt.Errorf("[ERROR] image_id is not equal to upgrade_policy.image_id"))
+			}
+			request["image_id"] = upgradePolicyImageIdJsonPath
+			update = true
+		}
+	}
+	if v, ok := d.GetOk("upgrade_policy"); ok {
+		upgradePolicyRuntimeJsonPath, err := jsonpath.Get("$[0].runtime", v)
+		if err == nil && upgradePolicyRuntimeJsonPath != "" {
+			npVal := d.Get("runtime_name").(string)
+			if npVal != upgradePolicyRuntimeJsonPath {
+				return WrapError(fmt.Errorf("[ERROR] runtime_type is not equal to upgrade_policy.runtime"))
+			}
+			request["runtime_type"] = upgradePolicyRuntimeJsonPath
+			update = true
+		}
+	}
+	if v, ok := d.GetOk("upgrade_policy"); ok {
+		upgradePolicyRuntimeVersionJsonPath, err := jsonpath.Get("$[0].runtime_version", v)
+		if err == nil && upgradePolicyRuntimeVersionJsonPath != "" {
+			npVal := d.Get("runtime_version").(string)
+			if npVal != upgradePolicyRuntimeVersionJsonPath {
+				return WrapError(fmt.Errorf("[ERROR] runtime_version is not equal to upgrade_policy.runtime_version"))
+			}
+			request["runtime_version"] = upgradePolicyRuntimeVersionJsonPath
+			update = true
+		}
+	}
+	if v, ok := d.GetOk("upgrade_policy"); ok {
+		upgradePolicyK8SVersionJsonPath, err := jsonpath.Get("$[0].k8s_version", v)
+		if err == nil && upgradePolicyK8SVersionJsonPath != "" {
+			request["k8s_version"] = upgradePolicyK8SVersionJsonPath
+			update = true
+		}
+	}
+	if v, ok := d.GetOk("upgrade_policy"); ok {
+		upgradePolicyUseReplaceJsonPath, err := jsonpath.Get("$[0].use_replace", v)
+		if err == nil && upgradePolicyUseReplaceJsonPath != nil {
+			request["use_replace"] = upgradePolicyUseReplaceJsonPath
+		}
+	}
+	rolling_policy := make(map[string]interface{})
+
+	if v, ok := d.GetOk("rolling_policy"); ok {
+		batchInterval, _ := jsonpath.Get("$[0].batch_interval", v)
+		if batchInterval != nil && batchInterval != "" {
+			rolling_policy["batch_interval"] = batchInterval
+		}
+		maxParallelism, _ := jsonpath.Get("$[0].max_parallelism", v)
+		if maxParallelism != nil && maxParallelism != "" {
+			rolling_policy["max_parallelism"] = maxParallelism
+		}
+		pausePolicy, _ := jsonpath.Get("$[0].pause_policy", v)
+		if pausePolicy != nil && pausePolicy != "" {
+			rolling_policy["pause_policy"] = pausePolicy
+		}
+		nodeNameslocalData, _ := jsonpath.Get("$[0].node_names", v)
+		if nodeNameslocalData != nil {
+			node_namesMapsArray := convertToInterfaceArray(nodeNameslocalData)
+			if len(node_namesMapsArray) > 0 {
+				rolling_policy["node_names"] = node_namesMapsArray
+			}
+		}
+		if len(rolling_policy) > 0 {
+			request["rolling_policy"] = rolling_policy
+		}
+	}
+
+	body = request
+	var err error
+	if !update {
+		return nil
+	}
+	wait := incrementalWait(3*time.Second, 5*time.Second)
+	err = resource.Retry(d.Timeout(schema.TimeoutUpdate), func() *resource.RetryError {
+		response, err = client.RoaPost("CS", "2015-12-15", action, query, header, body, true)
+		if err != nil {
+			if NeedRetry(err) {
+				wait()
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
+	addDebug(action, response, request)
+	if err != nil {
+		return WrapErrorf(err, DefaultErrorMsg, d.Id(), action, AlibabaCloudSdkGoERROR)
+	}
+	taskId, ok := response["task_id"]
+	if !ok || taskId == nil {
+		return nil
+	}
+	taskIdStr := taskId.(string)
+	csClient := CsClient{client: roaCsClient}
+	stateConf := BuildStateConf([]string{}, []string{"success"}, d.Timeout(schema.TimeoutUpdate), 5*time.Second, csClient.DescribeTaskRefreshFunc(d, taskIdStr, []string{"fail", "failed"}))
+	if jobDetail, err := stateConf.WaitForState(); err != nil {
+		return WrapErrorf(err, ResponseCodeMsg, d.Id(), action, jobDetail)
+	}
+
+	return nil
 }
